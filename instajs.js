@@ -1,20 +1,22 @@
 /**
- * OpenFB is a micro-library that lets you integrate your JavaScript application with Facebook.
- * OpenFB works for both BROWSER-BASED apps and CORDOVA/PHONEGAP apps.
- * This library has no dependency: You don't need (and shouldn't use) the Facebook SDK with this library. Whe running in
- * Cordova, you also don't need the Facebook Cordova plugin. There is also no dependency on jQuery.
- * OpenFB allows you to login to Facebook and execute any Facebook Graph API request.
- * @author Christophe Coenraets @ccoenraets
- * @version 0.2
+ * InstaJS is a micro-library that lets you integrate your JavaScript application with Instagram.
+ * InstaJS works for both BROWSER-BASED apps and CORDOVA/PHONEGAP apps.
+ * This library has no dependency. You don't need jQuery or anything else.
+ * InstaJS allows you to login to Instagram and execute any Instagram API request.
+ * Most (nearly all) of this code is from Christophe Coenraets's OpenFB project.
+ * @author Batuhan Icoz <i@bt.hn> twitter.com/batuhanicoz github.com/batuhan
+ * @license MIT
+ * @version 0.1
  */
-var openFB = (function() {
 
-    var FB_LOGIN_URL = 'https://www.facebook.com/dialog/oauth',
+var instaJS = (function() {
 
-        // By default we store fbtoken in sessionStorage. This can be overriden in init()
+    var IG_LOGIN_URL = 'http://localhost:3000/go',
+
+        // By default we store igtoken in sessionStorage. This can be overriden in init()
         tokenStore = window.sessionStorage,
 
-        fbAppId,
+        igAppId,
         oauthRedirectURL,
 
         // Because the OAuth login spans multiple processes, we need to keep the success/error handlers as variables
@@ -33,31 +35,33 @@ var openFB = (function() {
     }, false);
 
     /**
-     * Initialize the OpenFB module. You must use this function and initialize the module with an appId before you can
+     * Initialize the InstaJS module. You must use this function and initialize the module with an appId before you can
      * use any other function.
-     * @param appId - The id of the Facebook app
+     * @param appId - The ID of the Instagram app
      * @param redirectURL - The OAuth redirect URL. Optional. If not provided, we use sensible defaults.
-     * @param store - The store used to save the Facebook token. Optional. If not provided, we use sessionStorage.
+     * @param store - The store used to save the Instagram token. Optional. If not provided, we use sessionStorage.
      */
     function init(appId, redirectURL, store) {
-        fbAppId = appId;
+        igAppId = appId;
         if (redirectURL) oauthRedirectURL = redirectURL;
         if (store) tokenStore = store;
     }
 
     /**
-     * Login to Facebook using OAuth. If running in a Browser, the OAuth workflow happens in a a popup window.
+     * Login to Instagram using OAuth. If running in a Browser, the OAuth workflow happens in a a popup window.
      * If running in Cordova container, it happens using the In-App Browser. Don't forget to install the In-App Browser
      * plugin in your Cordova project: cordova plugins add org.apache.cordova.inappbrowser.
-     * @param scope - The set of Facebook permissions requested
+     * @param scope - The set of Instagram permissions requested
      * @param success - Callback function to invoke when the login process succeeds
      * @param error - Callback function to invoke when the login process fails
      * @returns {*}
      */
     function login(scope, success, error) {
 
-        if (!fbAppId) {
-            return error({error: 'Facebook App Id not set.'});
+        if (!igAppId) {
+            return error({
+                error: 'Instagram App ID is not set!'
+            });
         }
 
         var loginWindow;
@@ -79,18 +83,19 @@ var openFB = (function() {
                 var index = document.location.href.indexOf('index.html');
                 if (index > 0) {
                     oauthRedirectURL = window.document.location.href.substring(0, index) + 'oauthcallback.html';
+                    console.log(oauthRedirectURL);
                 } else {
-                    return alert("Can't reliably infer the OAuth redirect URI. Please specify it explicitly in openFB.init()");
+                    return alert("Can't reliably infer the OAuth redirect URI. Please specify it explicitly in instaJS.init()");
                 }
             }
         }
 
-        loginWindow = window.open(FB_LOGIN_URL + '?client_id=' + fbAppId + '&redirect_uri=' + oauthRedirectURL +
+        loginWindow = window.open(IG_LOGIN_URL + '?client_id=' + igAppId + '&redirect_uri=' + oauthRedirectURL +
             '&response_type=token&display=popup&scope=' + scope, '_blank', 'location=no');
 
         // If the app is running in Cordova, listen to URL changes in the InAppBrowser until we get a URL with an access_token or an error
         if (runningInCordova) {
-            loginWindow.addEventListener('loadstart', function (event) {
+            loginWindow.addEventListener('loadstart', function(event) {
                 var url = event.url;
                 if (url.indexOf("access_token=") > 0 || url.indexOf("error=") > 0) {
                     loginWindow.close();
@@ -98,10 +103,14 @@ var openFB = (function() {
                 }
             });
 
-            loginWindow.addEventListener('exit', function () {
+            loginWindow.addEventListener('exit', function() {
                 // Handle the situation where the user closes the login window manually before completing the login process
                 if (!loginProcessed) {
-                    loginErrorHandler({error: 'user_cancelled', error_description: 'User cancelled login process', error_reason: "user_cancelled"});
+                    loginErrorHandler({
+                        error: 'user_cancelled',
+                        error_description: 'User cancelled login process',
+                        error_reason: "user_cancelled"
+                    });
                 }
             });
         }
@@ -125,7 +134,7 @@ var openFB = (function() {
         if (url.indexOf("access_token=") > 0) {
             queryString = url.substr(url.indexOf('#') + 1);
             obj = parseQueryString(queryString);
-            tokenStore['fbtoken'] = obj['access_token'];
+            tokenStore['igtoken'] = obj['access_token'];
             if (loginSuccessHandler) loginSuccessHandler();
         } else if (url.indexOf("error=") > 0) {
             queryString = url.substring(url.indexOf('?') + 1, url.indexOf('#'));
@@ -140,65 +149,79 @@ var openFB = (function() {
      * Application-level logout: we simply discard the token.
      */
     function logout() {
-        tokenStore['fbtoken'] = undefined;
+        tokenStore['igtoken'] = undefined;
+    }
+
+
+    /**
+     * Helper function for JSONP requests 'cause fucking Instagram API don't have CORS
+     */
+
+    function jsonp(url, callback) {
+        console.log(url)
+        var callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        window[callbackName] = function(data) {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            callback(data.data);
+        };
+
+        var script = document.createElement('script');
+        script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
+        document.body.appendChild(script);
     }
 
     /**
-     * Lets you make any Facebook Graph API request.
+     * Lets you make any Instagram API request.
      * @param obj - Request configuration object. Can include:
      *  method:  HTTP method: GET, POST, etc. Optional - Default is 'GET'
-     *  path:    path in the Facebook graph: /me, /me.friends, etc. - Required
+     *  path:    path in the Instagram API: /users/self/feed, /users/self, etc. - Required
      *  params:  queryString parameters as a map - Optional
      *  success: callback function when operation succeeds - Optional
      *  error:   callback function when operation fails - Optional
      */
+
     function api(obj) {
 
         var method = obj.method || 'GET',
             params = obj.params || {},
-            xhr = new XMLHttpRequest(),
             url;
 
-        params['access_token'] = tokenStore['fbtoken'];
+        params['access_token'] = tokenStore['igtoken'];
 
-        url = 'https://graph.facebook.com' + obj.path + '?' + toQueryString(params);
+        url = 'https://api.instagram.com/v1' + obj.path + '?' + toQueryString(params);
 
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    if (obj.success) obj.success(JSON.parse(xhr.responseText));
-                } else {
-                    var error = xhr.responseText ? JSON.parse(xhr.responseText).error : {message: 'An error has occurred'};
-                    if (obj.error) obj.error(error);
+        if (method === 'GET') {
+            jsonp(url, function(data) {
+                if (obj.success) obj.success(data);
+            });
+        } else {
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        if (obj.success) obj.success(JSON.parse(xhr.responseText));
+                    } else {
+                        var error = xhr.responseText ? JSON.parse(xhr.responseText).error : {
+                            message: 'An error has occurred'
+                        };
+                        if (obj.error) obj.error(error);
+                    }
                 }
-            }
-        };
+            };
 
-        xhr.open(method, url, true);
-        xhr.send();
-    }
+            xhr.open(method, url, true);
+            xhr.send();
+        }
 
-    /**
-     * Helper function to de-authorize the app
-     * @param success
-     * @param error
-     * @returns {*}
-     */
-    function revokePermissions(success, error) {
-        return api({method: 'DELETE',
-            path:'/me/permissions',
-            success: function() {
-                tokenStore['fbtoken'] = undefined;
-                success();
-            },
-            error: error});
     }
 
     function parseQueryString(queryString) {
         var qs = decodeURIComponent(queryString),
             obj = {},
             params = qs.split('&');
-        params.forEach(function (param) {
+        params.forEach(function(param) {
             var splitter = param.split('=');
             obj[splitter[0]] = splitter[1];
         });
@@ -215,12 +238,12 @@ var openFB = (function() {
         return parts.join("&");
     }
 
+
     // The public API
     return {
         init: init,
         login: login,
         logout: logout,
-        revokePermissions: revokePermissions,
         api: api,
         oauthCallback: oauthCallback
     }

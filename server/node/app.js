@@ -7,7 +7,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 
 app.get('/go', function(req, res){
-    res.redirect("https://api.instagram.com/oauth/authorize/?response_type=token&redirect_uri=" + encodeURIComponent("http://localhost:3000/cb?url=" + req.query.redirect_uri) + "&scope=" + req.query.scope + "&client_id=" + req.query.client_id)
+    res.redirect("https://api.instagram.com/oauth/authorize/?response_type=token&redirect_uri=" + encodeURIComponent(req.protocol + "://" + req.get('host') + "/cb?url=" + req.query.redirect_uri) + "&scope=" + req.query.scope + "&client_id=" + req.query.client_id)
 });
 
 app.get('/cb', function(req, res){

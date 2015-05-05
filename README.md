@@ -1,6 +1,8 @@
 # InstaJS #
 
-###This is a working prototype. You'll need to figure out how to run it, until I have time to write a proper README.
+### I'm not working on this anymore. I've moved to (nraboy/ng-cordova-oauth)[https://github.com/nraboy/ng-cordova-oauth] since I'm using Angular in my hybrid apps.
+
+This was a working prototype. You'll need to figure out how to run it.
 
 InstaJS is a micro-library that lets you integrate your JavaScript application with Instagram. 
 InstaJS works for both BROWSER-BASED apps and CORDOVA/PHONEGAP apps.
